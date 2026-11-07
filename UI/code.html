@@ -1,0 +1,598 @@
+<!DOCTYPE html><html class="light" lang="en"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0" name="viewport"><meta content="web_dashboard" name="shell-type"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"><link href="https://fonts.googleapis.com" rel="preconnect"><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"><link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}#sidebar{transition:width .2s ease,opacity .2s ease;}#grid-canvas .card-focused{position:fixed;inset:0;z-index:60;border-radius:0;background:#020617;margin:0;}#grid-canvas .card-focused>div:first-child{aspect-ratio:auto;flex:1 1 auto;min-height:0;}#grid-canvas .card-focused video{object-fit:contain;}</style><script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script><script id="tailwind-config">tailwind.config={"darkMode":"class","theme":{"extend":{"colors":{"surface-container-lowest":"#ffffff","surface-container-low":"#f8fafc","surface-container":"#f1f5f9","surface-container-high":"#e2e8f0","surface-container-highest":"#cbd5e1","surface":"#ffffff","background":"#f8fafc","surface-variant":"#e2e8f0","outline":"#94a3b8","outline-variant":"#cbd5e1","on-background":"#0f172a","on-surface":"#0f172a","on-surface-variant":"#64748b","primary":"#2563eb","primary-container":"#2563eb","on-primary":"#ffffff","on-primary-container":"#ffffff","secondary":"#e11d48","secondary-container":"#fee2e2","on-secondary-container":"#991b1b","tertiary":"#0284c7","tertiary-container":"#e0f2fe","on-tertiary-container":"#0369a1"},"borderRadius":{"DEFAULT":"0.375rem","lg":"0.5rem","xl":"0.75rem","2xl":"1rem","full":"9999px"},"spacing":{"gutter":"0.5rem","space-sm":"0.5rem","margin":"0.75rem","space-xl":"1.5rem","space-xs":"0.25rem","space-md":"0.75rem","space-lg":"1rem"},"fontFamily":{"headline-sm":["Space Grotesk"],"headline-lg":["Space Grotesk"],"headline-xl":["Space Grotesk"],"body-sm":["Geist"],"body-md":["Geist"],"body-lg":["Geist"],"label-sm":["Space Grotesk"],"label-md":["Geist"],"telemetry-num":["Geist"]}}}};</script></head><body class="bg-slate-50 font-body-md text-slate-800 antialiased selection:bg-blue-600 selection:text-white overflow-hidden h-screen flex flex-col"><header class="h-14 bg-white border-b border-slate-200 z-50 px-space-md flex items-center justify-between gap-space-md shrink-0 shadow-sm"><div class="flex items-center gap-space-md"><button class="p-1 bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 rounded-lg shadow-xs flex items-center transition-colors" id="btn-toggle-sidebar" title="Thu gọn thanh bên" type="button"><span class="material-symbols-outlined text-[16px]">left_panel_close</span></button><div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-sm shrink-0"><span class="material-symbols-outlined text-[18px]">stay_current_portrait</span></div><div class="flex items-baseline gap-2"><span class="font-headline-sm text-[15px] font-bold tracking-tight text-slate-900">OmniStream</span><span class="font-label-sm text-[11px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100" id="active-count-badge">{{ rooms|length }} phòng đang xem</span></div></div><div class="flex items-center gap-3"><div class="inline-flex items-center bg-slate-100 p-0.5 border border-slate-200 rounded-lg shadow-inner"><button class="px-2.5 py-1 font-label-md text-[11px] font-semibold bg-white text-blue-600 rounded-md shadow-sm border border-slate-200/80 flex items-center gap-1.5 transition-all" id="btn-grid-auto" title="Tự động dàn layout" type="button"><span class="material-symbols-outlined text-[14px]">auto_awesome_mosaic</span><span class="">Tự động</span></button><button class="px-2 py-1 font-label-md text-[11px] font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 rounded-md flex items-center gap-1 transition-all" id="btn-grid-3" title="3 cột" type="button"><span class="">3 Cột</span></button><button class="px-2 py-1 font-label-md text-[11px] font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 rounded-md flex items-center gap-1 transition-all" id="btn-grid-4" title="4 cột" type="button"><span class="">4 Cột</span></button><button class="px-2 py-1 font-label-md text-[11px] font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 rounded-md flex items-center gap-1 transition-all" id="btn-grid-6" title="6 cột" type="button"><span class="">6 Cột</span></button></div><button class="px-2.5 py-1 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-label-md text-[11px] font-medium rounded-lg shadow-xs flex items-center gap-1.5 transition-colors" id="btn-master-mute-nav" title="Bật/Tắt âm thanh toàn bộ" type="button"><span class="material-symbols-outlined text-[15px] text-rose-500" id="master-mute-nav-icon">volume_off</span><span id="master-mute-nav-text" class="">Tắt tiếng tất cả</span></button></div><div class="flex items-center gap-2"><button class="px-2.5 py-1 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-label-md text-[11px] font-medium rounded-lg shadow-xs flex items-center gap-1.5 transition-colors" id="btn-account" title="Đăng nhập tài khoản" type="button"><span class="material-symbols-outlined text-[15px] text-slate-500" id="account-icon">person</span><span id="account-text">Đăng nhập</span></button></div></header><div class="fixed inset-0 z-[70] hidden items-center justify-center bg-slate-900/40 p-4" id="login-modal"><div class="w-full max-w-[340px] bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden"><div class="flex items-center justify-between px-4 py-3 border-b border-slate-200"><span class="font-headline-sm text-[13px] font-semibold text-slate-900 tracking-tight" id="login-title">Đăng nhập matoklive.tv</span><button class="p-1 hover:bg-slate-100 rounded-lg text-slate-500" id="btn-login-close" type="button"><span class="material-symbols-outlined text-[16px]">close</span></button></div><div class="px-4 py-3 flex flex-col gap-2.5"><label class="flex flex-col gap-1"><span class="font-label-md text-[11px] text-slate-600">Tài khoản hoặc email</span><input class="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-[12px] focus:outline-none focus:ring-2 focus:ring-blue-500/40" id="login-username" autocomplete="username" type="text"></label><label class="flex flex-col gap-1"><span class="font-label-md text-[11px] text-slate-600">Mật khẩu</span><input class="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-[12px] focus:outline-none focus:ring-2 focus:ring-blue-500/40" id="login-password" autocomplete="current-password" type="password"></label><div class="text-[11px] text-rose-600 hidden" id="login-error"></div><button class="w-full py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-label-md text-[12px] font-semibold rounded-lg shadow-sm transition-colors" id="btn-login-submit" type="button">Đăng nhập</button></div></div></div><div class="flex flex-1 overflow-hidden"><aside class="w-80 bg-white border-r border-slate-200 flex flex-col shrink-0 z-40 shadow-sm" id="sidebar"><div class="p-space-sm border-b border-slate-200 bg-slate-50/70 flex flex-col gap-2.5"><div class="flex items-center justify-between"><span class="font-headline-sm text-[13px] text-slate-900 font-semibold tracking-tight">Kênh Trực Tiếp</span><span class="font-label-sm text-[10px] text-slate-500 font-medium" id="selected-summary">Đã chọn: {{ rooms|length }}/{{ rooms|length }}</span></div><div class="relative"><span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[15px]">search</span><input class="w-full bg-white border border-slate-200 pl-8 pr-2 py-1.5 font-body-sm text-[12px] text-slate-800 placeholder:text-slate-400 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none" id="room-search" placeholder="Tìm kiếm kênh..." type="text" autocomplete="off" spellcheck="false"></div><div class="flex items-center justify-between text-[11px] pt-0.5"><div class="flex items-center gap-1 font-medium"><button class="px-2 py-0.5 bg-slate-900 text-white rounded text-[10px] font-semibold">Tất cả ({{ rooms|length }})</button><button class="px-2 py-0.5 text-slate-500 hover:text-slate-800 rounded text-[10px]">Live ({{ rooms|length }})</button></div><div class="flex items-center gap-2 text-[10px] font-medium"><button class="text-blue-600 hover:underline" id="btn-select-all">Chọn hết</button><span class="text-slate-300">·</span><button class="text-slate-400 hover:text-slate-700" id="btn-deselect-all">Bỏ chọn</button></div></div></div><div class="flex-1 overflow-y-auto divide-y divide-slate-100 bg-white">{% for room in rooms %}<div class="p-2.5 hover:bg-slate-50 flex items-center gap-2.5 transition-colors group cursor-pointer" data-room-id="room-{{ loop.index }}" data-room-name="{{ room.name }}"><input class="accent-blue-600 w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer shrink-0 room-checkbox" data-target="room-{{ loop.index }}" type="checkbox"><div class="relative w-10 h-14 rounded-lg overflow-hidden shrink-0 bg-slate-100 border border-slate-200"><img alt="Preview" class="w-full h-full object-cover" src="{{ room.cover }}"><span class="absolute bottom-0 inset-x-0 bg-rose-600 text-[7px] text-center text-white font-bold leading-tight py-0.5">LIVE</span></div><div class="flex-1 min-w-0"><div class="flex items-center justify-between gap-1"><span class="font-medium text-[12px] text-slate-900 truncate">{{ room.name }}</span><span class="text-[9px] px-1 py-0.2 rounded font-bold uppercase text-teal-300 shrink-0">{{ room.game }}</span></div><div class="flex items-center justify-between mt-1 text-[11px]"><span class="text-rose-600 font-medium font-telemetry-num flex items-center gap-0.5"><span class="material-symbols-outlined text-[13px]">visibility</span>{{ room.viewers }}</span><span class="text-slate-400 text-[10px]">{{ room.game }}</span></div></div></div>{% endfor %}<div class="hidden p-4 text-center text-[11px] text-slate-400" id="room-search-empty">Không tìm thấy kênh phù hợp.</div></div></aside><main class="flex-1 bg-slate-50 overflow-y-auto p-space-md flex flex-col"><div class="flex items-center justify-between mb-space-sm pb-space-xs border-b border-slate-200"><div class="flex items-center gap-2"><span class="font-headline-sm text-[14px] text-slate-900 font-semibold">Khung Hình Giám Sát</span><span class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-white border border-slate-200 text-slate-500" id="active-rooms-badge">{{ rooms|length }} hiển thị</span></div><div class="flex items-center gap-1.5 text-body-sm"><button class="p-1 bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 rounded-lg shadow-xs flex items-center transition-colors" id="btn-fullscreen-grid" title="Toàn màn hình"><span class="material-symbols-outlined text-[16px]">fullscreen</span></button></div></div>{% if rooms|length == 0 %}<div class="flex flex-col items-center justify-center py-20 text-slate-500"><span class="material-symbols-outlined text-[48px] mb-3 text-slate-300">live_tv</span><h2 class="text-headline-sm text-[16px] font-semibold text-slate-900 mb-1">Không có phòng trực tiếp</h2><p class="text-[13px] max-w-xs text-center">Dịch vụ lấy danh sách phòng tạm thời không phản hồi (mạng hoặc matoklive.tv). Vui lòng thử lại sau.</p></div>{% else %}<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-space-md w-full max-w-full pb-8" id="grid-canvas">{% for room in rooms %}<div class="flex flex-col rounded-2xl overflow-hidden bg-white border border-slate-200/90 shadow-sm hover:shadow-md relative group transition-all" id="card-room-{{ loop.index }}" data-room-id="room-{{ loop.index }}" data-room-name="{{ room.name }}" data-anchor-id="{{ room.anchor_id }}"><div class="relative w-full aspect-[9/16] bg-slate-950 overflow-hidden select-none"><video id="video-{{ loop.index }}" class="w-full h-full object-cover room-video" style="display:none" muted autoplay playsinline controls preload="auto"></video><img alt="Live Stream" class="w-full h-full object-cover room-preview" src="{{ room.cover }}"><div class="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black/70 pointer-events-none"></div><div class="absolute top-2.5 inset-x-2.5 flex items-center justify-between z-10"><div class="flex items-center gap-1.5 bg-black/40 backdrop-blur-md px-2 py-1 rounded-full border border-white/10"><img alt="Avatar" class="w-5 h-5 rounded-full object-cover" src="{{ room.cover }}"><span class="text-[11px] font-medium text-white truncate max-w-[80px]">{{ room.name }}</span></div><div class="flex items-center gap-1.5">{% if room.m3u8_error %}<div class="flex items-center gap-1 bg-red-500/40 backdrop-blur-md px-2 py-0.5 rounded-full border border-red-300/80 text-white text-[10px] font-telemetry-num"><span class="w-1.5 h-1.5 rounded-full bg-red-400"></span><span class="">Lỗi phát</span></div>{% else %}<div class="flex items-center gap-1 bg-black/40 backdrop-blur-md px-2 py-0.5 rounded-full border border-white/10 text-white text-[10px] font-telemetry-num"><span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span><span class="">{{ room.viewers }}</span></div>{% endif %}<button class="w-6 h-6 rounded-full bg-black/40 hover:bg-rose-600 text-white/80 hover:text-white flex items-center justify-center transition-colors btn-remove-card" data-room="room-{{ loop.index }}" title="Đóng"><span class="material-symbols-outlined text-[14px]">close</span></button></div></div><div class="absolute bottom-3 inset-x-2.5 z-10 flex flex-col gap-1 pointer-events-none stream-comments">{% if room.m3u8_error %}<div class="bg-red-500/45 backdrop-blur-sm rounded-md px-2 py-1 max-w-[90%] text-[10px] text-white leading-tight border border-red-300/80">{{ room.m3u8_error }}</div>{% else %}<div class="bg-black/45 backdrop-blur-sm rounded-md px-2 py-1 max-w-[90%] text-[10px] text-white/90 leading-tight border border-white/10"><span class="text-cyan-300 font-medium">Người xem:</span> Phòng đang phát trực tiếp.</div>{% endif %}</div></div><div class="bg-white px-2.5 py-1.5 border-t border-slate-200 flex items-center justify-between z-20"><div class="flex items-center gap-1.5"><button class="p-1 text-slate-500 hover:text-slate-800 transition-colors card-mute-btn" title="Bật/Tắt âm"><span class="material-symbols-outlined text-[16px] text-rose-500">volume_off</span></button><span class="text-[10px] font-medium text-slate-400 font-telemetry-num">{{ room.viewers }}</span></div><button class="p-1 text-slate-500 hover:text-blue-600 transition-colors btn-focus-card" title="Phóng to / Tiêu điểm" type="button"><span class="material-symbols-outlined text-[15px]">fit_screen</span></button></div></div>{% endfor %}{% endif %}</div></main></div><script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script><script>
+  const checkboxes = document.querySelectorAll('.room-checkbox');
+  const summaryText = document.getElementById('selected-summary');
+  const countBadge = document.getElementById('active-count-badge');
+  const activeRoomsBadge = document.getElementById('active-rooms-badge');
+  const gridCanvas = document.getElementById('grid-canvas');
+
+  function updateRoomVisibility() {
+    let activeCount = 0;
+    // Từ khoá hiện tại (nếu có) để lưới không bày lại phòng vừa bị lọc.
+    const query = searchQuery();
+    checkboxes.forEach(cb => {
+      const roomId = cb.getAttribute('data-target');
+      const card = document.getElementById(`card-${roomId}`);
+      const parentRow = cb.closest('[data-room-id]');
+      if (cb.checked) {
+        activeCount++;
+        if (card) {
+          const hit = !query || normalizeSearch(card.getAttribute('data-room-name') || card.textContent).includes(query);
+          card.classList.toggle('hidden', !hit);
+        }
+        if (parentRow) {
+          parentRow.classList.add('bg-blue-50/30');
+        }
+      } else {
+        if (card) {
+          card.classList.add('hidden');
+        }
+        if (parentRow) {
+          parentRow.classList.remove('bg-blue-50/30');
+        }
+      }
+    });
+
+    if (summaryText) summaryText.textContent = `Đã chọn: ${activeCount}/${checkboxes.length}`;
+    if (countBadge) countBadge.textContent = `${activeCount} phòng đang xem`;
+    if (activeRoomsBadge) activeRoomsBadge.textContent = `${activeCount} phòng đang hiển thị`;
+  }
+
+  checkboxes.forEach(cb => {
+    cb.addEventListener('change', updateRoomVisibility);
+  });
+
+  // Tìm kiếm kênh: lọc danh sách sidebar theo tên phòng (bỏ dấu, không phân biệt hoa thường).
+  // Chỉ lấy hàng trong #sidebar vì card trong #grid-canvas cũng có data-room-id.
+  const roomSearch = document.getElementById('room-search');
+  const roomSearchEmpty = document.getElementById('room-search-empty');
+  const roomRows = [...document.querySelectorAll('#sidebar [data-room-id]')];
+
+  function normalizeSearch(text) {
+    return (text || '').toString().normalize('NFD')
+      .replace(/[\u0300-\u0323]/g, '')
+      .replace(/[đĐ]/g, 'd')
+      .toLowerCase()
+      .trim();
+  }
+
+  // Từ khoá đã chuẩn hoá; dùng chung cho sidebar và lưới video.
+  function searchQuery() {
+    return roomSearch ? normalizeSearch(roomSearch.value) : '';
+  }
+
+  function applyRoomSearch() {
+    if (!roomSearch) return;
+    const query = normalizeSearch(roomSearch.value);
+    let matched = 0;
+    roomRows.forEach(row => {
+      const name = row.getAttribute('data-room-name') || row.textContent;
+      const hit = !query || normalizeSearch(name).includes(query);
+      row.classList.toggle('hidden', !hit);
+      if (hit) matched++;
+    });
+    // Lưới video phải lọc theo cùng kết quả, nếu không người dùng vẫn thấy đủ
+    // phòng đang phát bên phải và tưởng ô tìm kiếm không chạy.
+    updateRoomVisibility();
+    if (roomSearchEmpty) {
+      roomSearchEmpty.classList.toggle('hidden', matched > 0);
+      roomSearchEmpty.textContent = `Không tìm thấy kênh phù hợp với "${roomSearch.value.trim()}".`;
+    }
+  }
+
+  if (roomSearch) {
+    roomSearch.addEventListener('input', applyRoomSearch);
+    roomSearch.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        roomSearch.value = '';
+        applyRoomSearch();
+      }
+    });
+  }
+
+  // Remove / Deselect from card close button
+  document.querySelectorAll('.btn-remove-card').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const roomId = btn.getAttribute('data-room');
+      const targetCheckbox = document.querySelector(`.room-checkbox[data-target="${roomId}"]`);
+      if (targetCheckbox) {
+        targetCheckbox.checked = false;
+        updateRoomVisibility();
+      }
+    });
+  });
+
+  // Select all / Deselect all
+  const btnSelectAll = document.getElementById('btn-select-all');
+  const btnDeselectAll = document.getElementById('btn-deselect-all');
+
+  if (btnSelectAll) {
+    btnSelectAll.addEventListener('click', () => {
+      checkboxes.forEach(cb => {
+        if (!cb.disabled) cb.checked = true;
+      });
+      updateRoomVisibility();
+    });
+  }
+
+  if (btnDeselectAll) {
+    btnDeselectAll.addEventListener('click', () => {
+      checkboxes.forEach(cb => cb.checked = false);
+      updateRoomVisibility();
+    });
+  }
+
+  // Master Mute Toggle
+  const btnMasterMute = document.getElementById('btn-master-mute-nav');
+  const muteIcon = document.getElementById('master-mute-nav-icon');
+  const muteText = document.getElementById('master-mute-nav-text');
+  let isAllMuted = true;
+
+  // Đồng bộ âm thanh thật của mọi <video> với trạng thái mute của UI.
+  function applyMuteState() {
+    document.querySelectorAll('.room-video').forEach(video => {
+      video.muted = isAllMuted;
+    });
+  }
+
+  if (btnMasterMute) {
+    btnMasterMute.addEventListener('click', () => {
+      isAllMuted = !isAllMuted;
+      applyMuteState();
+      const cardMuteButtons = document.querySelectorAll('.card-mute-btn span');
+      if (isAllMuted) {
+        muteIcon.textContent = 'volume_off';
+        muteIcon.className = 'material-symbols-outlined text-[16px] text-rose-500';
+        muteText.textContent = 'Tắt tiếng tất cả';
+        cardMuteButtons.forEach(icon => {
+          icon.textContent = 'volume_off';
+          icon.className = 'material-symbols-outlined text-[16px] text-rose-500';
+        });
+      } else {
+        muteIcon.textContent = 'volume_up';
+        muteIcon.className = 'material-symbols-outlined text-[16px] text-blue-600';
+        muteText.textContent = 'Bật tiếng tất cả';
+        cardMuteButtons.forEach(icon => {
+          icon.textContent = 'volume_up';
+          icon.className = 'material-symbols-outlined text-[16px] text-blue-600';
+        });
+      }
+    });
+  }
+
+  // Toggle single card mute -> áp dụng cho <video> của chính thẻ đó.
+  document.querySelectorAll('.card-mute-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const icon = btn.querySelector('span');
+      const card = btn.closest('[data-anchor-id]');
+      const video = card && card.querySelector('.room-video');
+      const willUnmute = icon.textContent === 'volume_off';
+      if (willUnmute) {
+        icon.textContent = 'volume_up';
+        icon.className = 'material-symbols-outlined text-[16px] text-blue-600';
+      } else {
+        icon.textContent = 'volume_off';
+        icon.className = 'material-symbols-outlined text-[16px] text-rose-500';
+      }
+      if (video) video.muted = !willUnmute;
+    });
+  });
+
+  // Grid Column Switchers
+  const btnGridAuto = document.getElementById('btn-grid-auto');
+  const btnGrid3 = document.getElementById('btn-grid-3');
+  const btnGrid4 = document.getElementById('btn-grid-4');
+  const btnGrid6 = document.getElementById('btn-grid-6');
+  const layoutBtns = [btnGridAuto, btnGrid3, btnGrid4, btnGrid6];
+
+  function resetLayoutButtons() {
+    layoutBtns.forEach(btn => {
+      if (btn) {
+        btn.className = 'px-space-sm py-1 font-label-md text-[11px] font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 rounded-md uppercase flex items-center gap-1 transition-all';
+      }
+    });
+  }
+
+  if (btnGridAuto && gridCanvas) {
+    btnGridAuto.addEventListener('click', () => {
+      resetLayoutButtons();
+      btnGridAuto.className = 'px-space-sm py-1 font-label-md text-[11px] font-semibold bg-white text-blue-600 rounded-md shadow-sm border border-slate-200/80 flex items-center gap-1.5 transition-all';
+      gridCanvas.className = 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-space-md w-full max-w-full pb-8';
+    });
+  }
+
+  if (btnGrid3 && gridCanvas) {
+    btnGrid3.addEventListener('click', () => {
+      resetLayoutButtons();
+      btnGrid3.className = 'px-space-sm py-1 font-label-md text-[11px] font-semibold bg-white text-blue-600 rounded-md shadow-sm border border-slate-200/80 flex items-center gap-1.5 transition-all';
+      gridCanvas.className = 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-space-md w-full max-w-full pb-8';
+    });
+  }
+
+  if (btnGrid4 && gridCanvas) {
+    btnGrid4.addEventListener('click', () => {
+      resetLayoutButtons();
+      btnGrid4.className = 'px-space-sm py-1 font-label-md text-[11px] font-semibold bg-white text-blue-600 rounded-md shadow-sm border border-slate-200/80 flex items-center gap-1.5 transition-all';
+      gridCanvas.className = 'grid grid-cols-2 md:grid-cols-4 gap-space-md w-full max-w-full pb-8';
+    });
+  }
+
+  if (btnGrid6 && gridCanvas) {
+    btnGrid6.addEventListener('click', () => {
+      resetLayoutButtons();
+      btnGrid6.className = 'px-space-sm py-1 font-label-md text-[11px] font-semibold bg-white text-blue-600 rounded-md shadow-sm border border-slate-200/80 flex items-center gap-1.5 transition-all';
+      gridCanvas.className = 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-space-md w-full max-w-full pb-8';
+    });
+  }
+
+  // Toggle Comments Overlay
+  const btnToggleComments = document.getElementById('btn-toggle-comments');
+  let commentsVisible = true;
+  if (btnToggleComments) {
+    btnToggleComments.addEventListener('click', () => {
+      commentsVisible = !commentsVisible;
+      document.querySelectorAll('.stream-comments').forEach(el => {
+        el.style.display = commentsVisible ? 'flex' : 'none';
+      });
+      btnToggleComments.classList.toggle('text-blue-600', !commentsVisible);
+    });
+  }
+
+  // Thu gọn / mở lại thanh bên trái.
+  const btnToggleSidebar = document.getElementById('btn-toggle-sidebar');
+  const sidebar = document.getElementById('sidebar');
+  let sidebarCollapsed = false;
+  if (btnToggleSidebar && sidebar) {
+    btnToggleSidebar.addEventListener('click', () => {
+      sidebarCollapsed = !sidebarCollapsed;
+      // Đặt inline style để không bị class tiện ích của Tailwind (w-80) ghi đè.
+      sidebar.style.width = sidebarCollapsed ? '0px' : '';
+      sidebar.style.opacity = sidebarCollapsed ? '0' : '';
+      sidebar.style.overflow = sidebarCollapsed ? 'hidden' : '';
+      sidebar.style.borderRightWidth = sidebarCollapsed ? '0' : '';
+      const icon = btnToggleSidebar.querySelector('.material-symbols-outlined');
+      if (icon) icon.textContent = sidebarCollapsed ? 'left_panel_open' : 'left_panel_close';
+      btnToggleSidebar.title = sidebarCollapsed ? 'Mở thanh bên' : 'Thu gọn thanh bên';
+    });
+  }
+
+  // Fullscreen support
+  const btnFullscreen = document.getElementById('btn-fullscreen-grid');
+  if (btnFullscreen) {
+    btnFullscreen.addEventListener('click', () => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        document.exitFullscreen().catch(() => {});
+      }
+    });
+  }
+
+  // Load/unload phát trực tiếp on-demand khi user chọn/bỏ chọn phòng.
+  const hlsInstances = new Map();
+
+  function setStreamMessage(card, message) {
+    const box = card.querySelector('.stream-comments > div');
+    if (!box) return;
+    // Giữ nguyên thẻ con (icon/label) bằng cách chỉ đổi text khi là 1 dòng thường.
+    box.textContent = message;
+    box.className = message
+      ? 'bg-red-500/50 backdrop-blur-sm rounded-md px-2 py-1 max-w-[92%] text-[10px] text-white leading-tight border border-red-300/80'
+      : 'bg-black/45 backdrop-blur-sm rounded-md px-2 py-1 max-w-[92%] text-[10px] text-white/90 leading-tight border border-white/10';
+  }
+
+  // Autoplay thường bị chặn nếu chưa có tương tác người dùng -> cho bấm để phát.
+  function tryPlay(video, card) {
+    const attempt = video.play();
+    if (!attempt || !attempt.catch) return;
+    attempt.catch(err => {
+      if (err && err.name === 'NotAllowedError') {
+        if (video.hasAttribute('controls')) {
+          setStreamMessage(card, 'Bấm vào khung hình để phát (trình duyệt chặn tự động phát).');
+        }
+      }
+    });
+  }
+
+  function loadRoom(card) {
+    const anchorId = card.getAttribute('data-anchor-id');
+    const video = card.querySelector('.room-video');
+    const preview = card.querySelector('.room-preview');
+    if (!video || !anchorId) return;
+
+    // Đã đang phát thì chỉ cần hiện lại (autoplay có thể đã bị tạm dừng).
+    const existing = hlsInstances.get(anchorId);
+    if (existing) {
+      if (preview) preview.style.display = 'none';
+      video.style.display = 'block';
+      tryPlay(video, card);
+      return;
+    }
+
+    setStreamMessage(card, 'Đang lấy URL phát...');
+
+    fetch(`/api/m3u8/${encodeURIComponent(anchorId)}`)
+      .then(async res => {
+        let data = {};
+        try { data = await res.json(); } catch (_) {}
+        if (!res.ok || !data.ok || !data.m3u8) {
+          // Hiển thị nguyên văn lý do từ backend (vd thiếu xác minh thiết bị).
+          const err = new Error(data.error || `Máy chủ trả HTTP ${res.status}`);
+          err.hint = data.hint;
+          err.code = data.code;
+          throw err;
+        }
+        return data.m3u8;
+      })
+      .then(m3u8 => {
+        if (preview) preview.style.display = 'none';
+        video.style.display = 'block';
+        setStreamMessage(card, '');
+
+        if (window.Hls && window.Hls.isSupported()) {
+          const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
+          hlsInstances.set(anchorId, { hls, video });
+
+          hls.on(Hls.Events.MANIFEST_PARSED, () => tryPlay(video, card));
+          hls.on(Hls.Events.ERROR, (_evt, data) => {
+            if (!data || !data.fatal) return;
+            console.error(`HLS fatal for ${anchorId}:`, data);
+            // Lỗi mạng chỉ là tạm thời -> hls.js tự phục hồi.
+            if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+              setStreamMessage(card, 'Mất kết nối luồng, đang thử lại...');
+              hls.startLoad();
+              return;
+            }
+            if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+              setStreamMessage(card, 'Lỗi giải mã, đang khôi phục...');
+              hls.recoverMediaError();
+              return;
+            }
+            setStreamMessage(card, 'Không phát được luồng: ' + (data.details || 'lỗi không xác định'));
+            hls.destroy();
+            hlsInstances.delete(anchorId);
+            video.style.display = 'none';
+            if (preview) preview.style.display = 'block';
+          });
+
+          hls.loadSource(m3u8);
+          hls.attachMedia(video);
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+          video.src = m3u8;
+          hlsInstances.set(anchorId, { hls: null, video });
+          video.addEventListener('loadedmetadata', () => tryPlay(video, card), { once: true });
+          video.load();
+          tryPlay(video, card);
+        } else {
+          throw new Error('Trình duyệt không hỗ trợ phát HLS');
+        }
+      })
+      .catch(err => {
+        console.error(`HLS init failed for ${anchorId}:`, err);
+        setStreamMessage(card, err.message + (err.hint ? ' — ' + err.hint : ''));
+        if (preview) preview.style.display = 'block';
+        video.style.display = 'none';
+      });
+  }
+
+  function unloadRoom(card) {
+    const anchorId = card.getAttribute('data-anchor-id');
+    const video = card.querySelector('.room-video');
+    const preview = card.querySelector('.room-preview');
+    // Phòng đang phóng to mà bị bỏ chọn thì thoát chế độ tiêu điểm trước.
+    if (card === focusedCard) setFocusedCard(null);
+    const inst = hlsInstances.get(anchorId);
+    if (inst) {
+      if (inst.hls) {
+        try { inst.hls.destroy(); } catch (_) {}
+      }
+      hlsInstances.delete(anchorId);
+    }
+    if (video) {
+      video.src = '';
+      video.load();
+      video.style.display = 'none';
+    }
+    if (preview) preview.style.display = 'block';
+    setStreamMessage(card, '');
+  }
+
+  // Khi tick chọn phòng -> load phát; khi bỏ tick -> dừng phát.
+  checkboxes.forEach(cb => {
+    cb.addEventListener('change', () => {
+      const roomId = cb.getAttribute('data-target');
+      if (!roomId) return;
+      const card = document.getElementById(`card-${roomId}`);
+      if (!card) return;
+      if (cb.checked) {
+        loadRoom(card);
+      } else {
+        unloadRoom(card);
+      }
+      updateRoomVisibility();
+    });
+  });
+
+  // Select all / Deselect all
+  if (btnSelectAll) {
+    btnSelectAll.addEventListener('click', () => {
+      checkboxes.forEach(cb => {
+        if (!cb.disabled) {
+          cb.checked = true;
+          const card = document.getElementById(`card-${cb.getAttribute('data-target')}`);
+          if (card) loadRoom(card);
+        }
+      });
+      updateRoomVisibility();
+    });
+  }
+
+  if (btnDeselectAll) {
+    btnDeselectAll.addEventListener('click', () => {
+      checkboxes.forEach(cb => {
+        cb.checked = false;
+        const card = document.getElementById(`card-${cb.getAttribute('data-target')}`);
+        if (card) unloadRoom(card);
+      });
+      updateRoomVisibility();
+    });
+  }
+
+  // Phóng to 1 khung hình (tiêu điểm), bấm lại hoặc Esc để thu nhỏ.
+  let focusedCard = null;
+
+  function setFocusedCard(card) {
+    if (focusedCard) focusedCard.classList.remove('card-focused');
+    focusedCard = card;
+    if (card) {
+      card.classList.add('card-focused');
+      const video = card.querySelector('.room-video');
+      if (video) tryPlay(video, card);
+    }
+  }
+
+  document.querySelectorAll('.btn-focus-card').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const card = btn.closest('[data-anchor-id]');
+      if (!card) return;
+      setFocusedCard(focusedCard === card ? null : card);
+    });
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (!loginModal.classList.contains('hidden')) {
+      closeLoginModal();
+      return;
+    }
+    if (focusedCard) setFocusedCard(null);
+  });
+
+  // ---------------------------------------------------------------- //
+  // Đăng nhập tài khoản: token do backend giữ, trình duyệt không thấy.
+  // ---------------------------------------------------------------- //
+  const btnAccount = document.getElementById('btn-account');
+  const accountIcon = document.getElementById('account-icon');
+  const accountText = document.getElementById('account-text');
+  const loginModal = document.getElementById('login-modal');
+  const loginTitle = document.getElementById('login-title');
+  const loginUsername = document.getElementById('login-username');
+  const loginPassword = document.getElementById('login-password');
+  const loginError = document.getElementById('login-error');
+  const btnLoginSubmit = document.getElementById('btn-login-submit');
+  let currentSession = { logged_in: false };
+
+  function renderSession(session) {
+    currentSession = session || { logged_in: false };
+    if (currentSession.logged_in) {
+      const label = currentSession.nickname || currentSession.username || 'Tài khoản';
+      accountText.textContent = label;
+      accountIcon.textContent = 'account_circle';
+      accountIcon.className = 'material-symbols-outlined text-[15px] text-blue-600';
+      btnAccount.title = 'Đang đăng nhập — bấm để đăng xuất';
+    } else {
+      accountText.textContent = 'Đăng nhập';
+      accountIcon.textContent = 'person';
+      accountIcon.className = 'material-symbols-outlined text-[15px] text-slate-500';
+      btnAccount.title = 'Đăng nhập tài khoản';
+    }
+  }
+
+  function showLoginError(message) {
+    loginError.textContent = message || '';
+    loginError.classList.toggle('hidden', !message);
+  }
+
+  function openLoginModal() {
+    showLoginError('');
+    loginTitle.textContent = 'Đăng nhập matoklive.tv';
+    loginUsername.value = '';
+    loginPassword.value = '';
+    loginModal.classList.remove('hidden');
+    loginModal.classList.add('flex');
+    loginUsername.focus();
+  }
+
+  function closeLoginModal() {
+    loginModal.classList.add('hidden');
+    loginModal.classList.remove('flex');
+  }
+
+  async function submitLogin() {
+    const username = loginUsername.value.trim();
+    const password = loginPassword.value;
+    if (!username || !password) {
+      showLoginError('Cần nhập tài khoản và mật khẩu.');
+      return;
+    }
+
+    btnLoginSubmit.disabled = true;
+    btnLoginSubmit.textContent = 'Đang đăng nhập...';
+    showLoginError('');
+    try {
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) throw new Error(data.error || `Máy chủ trả HTTP ${res.status}`);
+      renderSession(data);
+      closeLoginModal();
+    } catch (err) {
+      showLoginError(err.message);
+    } finally {
+      btnLoginSubmit.disabled = false;
+      btnLoginSubmit.textContent = 'Đăng nhập';
+    }
+  }
+
+  async function logoutAccount() {
+    try {
+      const res = await fetch('/api/logout', { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      renderSession(data);
+    } catch (err) {
+      console.error('Đăng xuất thất bại:', err);
+    }
+  }
+
+  if (btnAccount) {
+    btnAccount.addEventListener('click', () => {
+      if (currentSession.logged_in) logoutAccount();
+      else openLoginModal();
+    });
+  }
+  document.getElementById('btn-login-close').addEventListener('click', closeLoginModal);
+  btnLoginSubmit.addEventListener('click', submitLogin);
+  loginPassword.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') submitLogin();
+  });
+  loginModal.addEventListener('click', (e) => {
+    if (e.target === loginModal) closeLoginModal();
+  });
+
+  fetch('/api/session')
+    .then(res => res.json())
+    .then(renderSession)
+    .catch(err => console.error('Không đọc được trạng thái đăng nhập:', err));
+
+  // Remove / Deselect from card close button -> dừng phát.
+  document.querySelectorAll('.btn-remove-card').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const roomId = btn.getAttribute('data-room');
+      const targetCheckbox = document.querySelector(`.room-checkbox[data-target="${roomId}"]`);
+      if (targetCheckbox) {
+        targetCheckbox.checked = false;
+        const card = document.getElementById(`card-${roomId}`);
+        if (card) unloadRoom(card);
+        updateRoomVisibility();
+      }
+    });
+  });
+</script>
+
+</body></html>

@@ -1,0 +1,46 @@
+# ----- Môi trường Python -----
+.venv/
+venv/
+env/
+ENV/
+*.egg-info/
+.eggs/
+
+# ----- Cache / build -----
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# ----- Biến môi trường & bí mật -----
+# Không commit file chứa mật khẩu/token
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ----- Định danh thiết bị cục bộ -----
+# Mỗi máy có UUID riêng; report.py tự dùng DEFAULT_DEVICE nếu thiếu file này
+Report/device.json
+Report/device.local.json
+
+# ----- Log / file tạm -----
+.server.log
+*.log
+*.tmp
+*.bak
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# ----- IDE / OS -----
+.idea/
+.vscode/
+*.swp
+*~
