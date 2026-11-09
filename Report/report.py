@@ -24,7 +24,9 @@ import json
 import logging
 import math
 import os
+import threading
 import time
+import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -55,15 +57,13 @@ GET_TOKEN_BASIC_AUTH = "Basic d2ViLXBsYXllcjp3ZWJQbGF5ZXIyMDIyKjk2My4hQCM="
 
 # --------------------------------------------------------------------------- #
 # Device UUID — server chỉ cấp token phát khi `device` đã được xác minh
-# (`nvfy` = not verified nếu không). Việc xác minh chỉ làm được một lần bằng
-# tay: mở https://matoklive.tv/ trên trình duyệt, vượt captcha, rồi lấy
-# localStorage["device"]. Không thể tự sinh UUID tin cậy bằng code.
+# (`nvfy` = not verified nếu không). Cờ xác minh do Cloudflare Turnstile
+# (invisible) của chính matoklive.tv cấp cho giá trị trong localStorage, nên
+# không thể tự sinh bằng một request thuần Python. Khi thiếu/không hợp lệ,
+# app tự bootstrap qua Chrome headless (xem `Report/device_bootstrap.py`).
 # --------------------------------------------------------------------------- #
 
-# Device đã kiểm chứng và cho ra playlist 200 (dùng khi không cấu hình gì khác).
-DEFAULT_DEVICE = "2e8e5784-e34e-4e93-bdc5-6777364f2797"
-
-# File tuỳ chọn: {"device": "<uuid>"}. Ưu tiên hơn DEFAULT_DEVICE.
+# File lưu device đã xác minh: {"device": "<uuid>"}.
 DEVICE_FILE = Path(__file__).resolve().with_name("device.json")
 
 
@@ -82,23 +82,66 @@ def _valid_device(value: Any) -> Optional[str]:
     return text
 
 
+# Device dùng chung cho cả tiến trình; đổi được khi bootstrap lại.
+_DEVICE_CACHE: Dict[str, str] = {}
+# Trạng thái bootstrap device (chỉ chạy một lần cho cả tiến trình Flask).
+_DEVICE_BOOTSTRAP: Dict[str, bool] = {}
+_DEVICE_BOOTSTRAP_LOCK = threading.Lock()
+# Guest JWT dùng chung theo device. Server giữ phiên theo device nên hai request
+# song song mà mỗi bên tự đăng nhập khách sẽ đầy phiên của nhau ra
+# (G10003 / USER_LOGIN_OTHER_DEVICE). Có khoá để chỉ một bên đi lấy token.
+_GUEST_CACHE: Dict[str, tuple] = {}
+_GUEST_LOCK = threading.Lock()
+
+
+def _read_device_file() -> Optional[str]:
+    """Đọc device đã xác minh từ ``Report/device.json`` (nếu có)."""
+    try:
+        if not DEVICE_FILE.exists():
+            return None
+        data = json.loads(DEVICE_FILE.read_text(encoding="utf-8"))
+        return _valid_device(data.get("device") if isinstance(data, dict) else data)
+    except Exception as exc:  # file hỏng không được làm chết app
+        logger.warning("Không đọc được %s (%s)", DEVICE_FILE, exc)
+        return None
+
+
+def _save_device_file(device: str) -> None:
+    """Lưu device đã xác minh để lần chạy sau không phải bootstrap lại."""
+    try:
+        DEVICE_FILE.write_text(
+            json.dumps({"device": device}, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+    except OSError as exc:
+        logger.warning("Không ghi được %s (%s)", DEVICE_FILE, exc)
+
+
 def _resolve_device() -> str:
-    """Thứ tự ưu tiên: MATOK_DEVICE -> Report/device.json -> DEFAULT_DEVICE."""
+    """Thứ tự ưu tiên: MATOK_DEVICE -> Report/device.json -> UUID tự sinh.
+
+    UUID tự sinh được dùng ngay cho các request thường; nếu server trả `nvfy`
+    thì `Report` sẽ bootstrap để lấy device đã xác minh và ghi lại vào file.
+    """
     env_device = _valid_device(os.environ.get("MATOK_DEVICE"))
     if env_device:
         return env_device
+    if not _DEVICE_CACHE.get("device"):
+        _DEVICE_CACHE["device"] = (
+            _read_device_file() or str(uuid.uuid4())
+        )
+    return _DEVICE_CACHE["device"]
 
-    try:
-        if DEVICE_FILE.exists():
-            data = json.loads(DEVICE_FILE.read_text(encoding="utf-8"))
-            file_device = _valid_device(data.get("device") if isinstance(data, dict) else data)
-            if file_device:
-                return file_device
-            logger.warning("%s không chứa device UUID hợp lệ; dùng DEFAULT_DEVICE", DEVICE_FILE)
-    except Exception as exc:  # file hỏng không được làm chết app
-        logger.warning("Không đọc được %s (%s); dùng DEFAULT_DEVICE", DEVICE_FILE, exc)
 
-    return DEFAULT_DEVICE
+def _set_device(device: str) -> None:
+    """Ghi nhận device mới đã xác minh (dùng cho mọi request sau đó)."""
+    _DEVICE_CACHE["device"] = device
+    _save_device_file(device)
+
+
+def _device_for(instance: Any) -> str:
+    """Device của một ``Report``: bản ghi đè riêng (dùng khi dò) hoặc bản chung."""
+    return getattr(instance, "_device_override", None) or _resolve_device()
 
 # --------------------------------------------------------------------------- #
 # Sign header — Wasm `api_sign` (module 34896)
@@ -227,8 +270,10 @@ class DeviceNotTrustedError(ReportError):
     Server trả `{"nvfy": true}` (`nvfy` = "now verify") thay vì token phát.
     Cờ này do server quyết định theo cặp (device, phiên đăng nhập): đăng nhập
     bằng tài khoản chưa qua cửa xác minh vẫn bị `nvfy` dù cùng device đang
-    phát được bằng khách. Chỉ khắc phục được bằng một lần xác minh thủ công
-    trên trình duyệt (captcha/slider), không tự động hoá được.
+    phát được bằng khách. App tự bootstrap một device đã xác minh qua Chrome
+    headless (xem `Report/device_bootstrap.py`); lỗi này chỉ còn khi bước đó
+    thất bại (thiếu Chrome, mạng bị chặn, hoặc đăng nhập bằng tài khoản chưa
+    từng qua xác minh).
     """
 
     def __init__(self, message: str) -> None:
@@ -238,13 +283,12 @@ class DeviceNotTrustedError(ReportError):
     @property
     def hint(self) -> str:
         return (
-            "Server yêu cầu xác minh (nvfy) cho thiết bị này. Mở https://matoklive.tv/ "
-            "trên trình duyệt, vào một phòng live đến khi phát được (vượt captcha), "
-            "rồi lấy localStorage[\"device\"] và đặt vào biến môi trường MATOK_DEVICE "
-            "(hoặc Report/device.json). Nếu đang đăng nhập bằng tài khoản chưa từng "
-            "qua xác minh, hãy đăng xuất để dùng phiên khách. Lưu ý: device UUID chỉ "
-            "được tin cậy trong một thời gian và không nên dùng song song với tab "
-            "matoklive.tv đang mở."
+            "Không tự xác minh được thiết bị (nvfy). App cần Google Chrome để "
+            "bootstrap tự động: cài Chrome, hoặc đặt MATOK_CHROME=/đường/dẫn/tới/chrome. "
+            "Nếu vẫn lỗi, mở https://matoklive.tv/ trên trình duyệt, vào một phòng live "
+            "đến khi phát được, rồi đặt localStorage[\"device\"] vào biến môi trường "
+            "MATOK_DEVICE (hoặc Report/device.json). Nếu đang đăng nhập bằng tài khoản "
+            "chưa từng qua xác minh, hãy đăng xuất để dùng phiên khách."
         )
 
 
@@ -273,16 +317,105 @@ class Report:
         self._user_info: Optional[Dict[str, Any]] = None
         # Phiên tài khoản đã bị server đánh `nvfy` khi phát -> dùng khách để phát.
         self._user_play_blocked: bool = False
+        # Probe kiểm tra device không được tự bootstrap tiếp (chặn đệ quy).
+        self._no_bootstrap: bool = False
+        # Device riêng cho lần dò (không đụng biến môi trường dùng chung).
+        self._device_override: Optional[str] = None
+        # Guest token đang dùng thuộc device nào (đổi device phải lấy token mới).
+        self._guest_token_device: Optional[str] = None
+
+    # ------------------------------------------------------------------ #
+    # Tự xác minh device (nvfy) qua Chrome headless
+    # ------------------------------------------------------------------ #
+    def _device_is_trusted(self, device: str, anchor_id: str) -> bool:
+        """Kiểm tra device có thực sự được server cấp token phát không."""
+        probe = Report(timeout=self.timeout)
+        # Chặn đệ quy: probe chỉ kiểm tra, không được mở thêm Chrome.
+        probe._no_bootstrap = True
+        probe._device_override = device
+        try:
+            data = probe.get_room_token(anchor_id)
+            unl_def_pa = data.get("unlDefPa") or {}
+            return bool(unl_def_pa.get("ptmlt") and unl_def_pa.get("pkey"))
+        except (DeviceNotTrustedError, ReportError):
+            return False
+
+    def _bootstrap_device(self, anchor_id: str) -> bool:
+        """Lấy một device đã xác minh và ghi nhớ; ``True`` nếu thành công.
+
+        Bootstrap tốn ~45 giây và không được chồng nhau (nhiều request song song
+        trên Flask), nên trạng thái "đã chạy" là của cả tiến trình và có khoá.
+        """
+        if self._no_bootstrap:
+            return False
+        if _DEVICE_BOOTSTRAP.get("done"):
+            return _DEVICE_BOOTSTRAP.get("ok", False)
+        with _DEVICE_BOOTSTRAP_LOCK:
+            if _DEVICE_BOOTSTRAP.get("done"):
+                return _DEVICE_BOOTSTRAP.get("ok", False)
+            ok = False
+            if _valid_device(os.environ.get("MATOK_DEVICE")):
+                # Người dùng cố ý chỉ định device -> không ghi đè lên lựa chọn đó.
+                ok = False
+            else:
+                ok = self._run_bootstrap(anchor_id)
+            _DEVICE_BOOTSTRAP.update({"done": True, "ok": ok})
+            return ok
+
+    def _run_bootstrap(self, anchor_id: str) -> bool:
+        from Report.device_bootstrap import DeviceBootstrapError, bootstrap_device
+
+        logger.info("Device chưa xác minh (nvfy); bắt đầu bootstrap qua Chrome...")
+        try:
+            device = bootstrap_device(
+                anchor_id, lambda dev: self._device_is_trusted(dev, anchor_id)
+            )
+        except DeviceBootstrapError as exc:
+            logger.warning("Bootstrap device thất bại: %s", exc)
+            return False
+        _set_device(device)
+        return True
 
     # ------------------------------------------------------------------ #
     # Step 1 — guest JWT
     # ------------------------------------------------------------------ #
     def get_guest_token(self, force_refresh: bool = False) -> str:
-        """Lấy guest JWT (access_token). Dùng lại token còn hạn nếu có."""
+        """Lấy guest JWT (access_token). Dùng lại token còn hạn nếu có.
+
+        Token khách được dùng chung theo device: server giữ phiên theo device,
+        nên nếu mọi request tự đăng nhập khách thì chúng đẩy phiên của nhau ra
+        (`G10003`). Vì vậy cả tiến trình chỉ giữ một token cho mỗi device và
+        việc lấy token được khoá lại.
+        """
+        device = _device_for(self)
         now = time.time()
-        if not force_refresh and self._guest_token and now < self._guest_token_expiry - 60:
+        if (
+            not force_refresh
+            and self._guest_token
+            and self._guest_token_device == device
+            and now < self._guest_token_expiry - 60
+        ):
             return self._guest_token
 
+        with _GUEST_LOCK:
+            cached = _GUEST_CACHE.get(device)
+            still_valid = bool(cached) and time.time() < cached[1] - 60
+            # Một luồng khác vừa lấy token mới -> dùng lại thay vì đăng nhập
+            # thêm lần nữa (mỗi lần đăng nhập là một lần đẩy phiên trước ra).
+            if still_valid and (not force_refresh or cached[0] != self._guest_token):
+                self._guest_token, self._guest_token_expiry = cached
+                self._guest_token_device = device
+                return self._guest_token
+
+            token, expiry = self._fetch_guest_token(device)
+            _GUEST_CACHE[device] = (token, expiry)
+            self._guest_token, self._guest_token_expiry = token, expiry
+            self._guest_token_device = device
+            return token
+
+    def _fetch_guest_token(self, device: str) -> tuple:
+        """Gọi ``getToken`` với ``loginType=11`` để lấy JWT khách."""
+        now = time.time()
         url = f"{BASE_API}/auth-service/oauth/getToken"
         headers = {
             "Content-Type": "application/x-www-form-urlencoded",
@@ -291,7 +424,7 @@ class Report:
             "merchantId": MERCHANT_ID,
             "dev-type": "H5",
             "versionCode": "102",
-            "device": _resolve_device(),
+            "device": device,
             "sign": _sign_payload(None),
         }
         body = "loginType=11&grant_type=password"
@@ -314,9 +447,7 @@ class Report:
             raise ReportError(f"getToken không trả access_token: {payload!r}")
 
         expires_in = int(payload.get("expires_in", 259199) or 259199)
-        self._guest_token = token
-        self._guest_token_expiry = now + expires_in
-        return token
+        return token, now + expires_in
 
     # ------------------------------------------------------------------ #
     # Đăng nhập bằng tài khoản (auth-service/oauth/token)
@@ -341,7 +472,7 @@ class Report:
             "merchantId": MERCHANT_ID,
             "dev-type": "H5",
             "versionCode": "102",
-            "device": _resolve_device(),
+            "device": _device_for(self),
             "sign": _sign_payload(None),
         }
         body = {
@@ -532,7 +663,7 @@ class Report:
             "merchantId": MERCHANT_ID,
             "area": AREA,
             "locale-language": "VIT",
-            "device": _resolve_device(),
+            "device": _device_for(self),
             "dev-type": "H5",
             "system-version": "1.5.1",
             "time-zone": "GMT+07:00",
@@ -583,6 +714,13 @@ class Report:
                 if self._user_token and not guest_fallback:
                     guest_fallback = True
                     self._user_play_blocked = True
+                    headers["Authorization"] = f"Bearer {self.get_guest_token(force_refresh=True)}"
+                    headers["sign"] = _sign_payload(None)
+                    continue
+                # Lần đầu gặp nvfy: tự xác minh device rồi thử lại một lượt.
+                if self._bootstrap_device(anchor_id):
+                    headers["device"] = _device_for(self)
+                    self._guest_token = None
                     headers["Authorization"] = f"Bearer {self.get_guest_token(force_refresh=True)}"
                     headers["sign"] = _sign_payload(None)
                     continue

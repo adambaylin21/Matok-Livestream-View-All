@@ -56,28 +56,31 @@ Mở `http://127.0.0.1:5000` (hoặc cổng bạn chọn). App chỉ lắng nghe
 
 ## Cấu hình thiết bị (`device`)
 
-Server matoklive.tv chỉ cấp token phát cho `device` UUID đã được xác minh. Thứ tự ưu tiên:
+Server matoklive.tv chỉ cấp token phát cho `device` UUID đã được xác minh. App **tự lấy** device hợp lệ, không cần điền tay. Thứ tự ưu tiên:
 
-1. Biến môi trường `MATOK_DEVICE` — UUID dạng `8-4-4-4-12`
+1. Biến môi trường `MATOK_DEVICE` — UUID dạng `8-4-4-4-12` (nếu bạn chỉ định thì app tôn trọng, không ghi đè)
 2. File `Report/device.json` — nội dung `{"device": "<uuid>"}` (đã nằm trong `.gitignore`)
-3. Hằng số `DEFAULT_DEVICE` trong `Report/report.py`
+3. UUID tự sinh (`uuid4`) cho lần chạy đầu
 
-Lấy UUID của riêng bạn: mở https://matoklive.tv/ trên trình duyệt, vào một phòng live đến khi phát được (vượt captcha), rồi chạy trong Console:
+### Tự xác minh (`nvfy`)
+
+Cờ `nvfy` (*not verified*) do Cloudflare Turnstile **invisible** của chính matoklive.tv cấp cho giá trị trong `localStorage["device"]`; sitekey bị khoá theo hostname nên không mint được token từ origin khác, và gọi thẳng `submit-room-verify` không cấp cờ này. Vì vậy app bootstrap đúng cách trình duyệt vẫn làm:
+
+1. Mở **Chrome/Chromium headless** (`Report/device_bootstrap.py`) tới https://matoklive.tv/ để site tự sinh `device`;
+2. Vào một phòng live, bấm hộ nút chặn 18+, để site chạy Turnstile (~30–40 giây);
+3. Đóng Chrome rồi kiểm tra lại API bằng UUID đó;
+4. UUID đã xác minh được ghi vào `Report/device.json` nên các lần sau không cần bootstrap lại.
+
+Bước này chạy tự động một lần khi `/api/m3u8/<id>` gặp `nvfy` (mất khoảng 45 giây). Không chen request vào lúc trang đang xác minh — app đã xử lý bằng cách chỉ kiểm tra sau khi đóng Chrome.
+
+Yêu cầu: có Google Chrome (hoặc Chromium/Edge). Nếu cài ở đường dẫn khác, đặt `MATOK_CHROME=/đường/dẫn/tới/chrome`. Khi bootstrap thất bại, khung phòng báo "Thiết bị chưa xác minh…" và `/api/m3u8/<id>` trả **409**; khi đó có thể xác minh thủ công rồi đặt `MATOK_DEVICE`:
 
 ```js
+// Console trên https://matoklive.tv/ sau khi phát được một phòng
 localStorage.getItem("device")
 ```
 
-### Khi gặp lỗi `nvfy`
-
-`nvfy` (*not verified*) là server từ chối cấp token phát cho cặp (device, phiên đăng nhập) chưa xác minh. Biểu hiện trong app: khung phòng báo "Thiết bị chưa xác minh…" và `/api/m3u8/<id>` trả **409**.
-
-Đây là chính sách phía server, không phải lỗi code. Cách xử lý:
-
-- Xác minh lại thiết bị trên trình duyệt như trên rồi cập nhật `MATOK_DEVICE`;
-- Hoặc đăng xuất để dùng phiên khách (nút đăng xuất trên header);
-- Đôi khi cờ này xuất hiện tạm thời và tự hết sau vài phút;
-- Không mở song song tab matoklive.tv trên cùng device — server coi là trùng phiên.
+Lưu ý khác: đăng nhập bằng tài khoản chưa từng qua xác minh vẫn có thể bị `nvfy` — khi đó app lùi về token khách để vẫn phát được; và không mở song song tab matoklive.tv trên cùng device (server coi là trùng phiên). Nhiều request **trong app** chạy song song thì an toàn: bootstrap chỉ chạy một lần cho cả tiến trình và guest token được dùng chung theo device, nên các request không đăng nhập khách lặp lại và đẩy phiên của nhau ra.
 
 ## API
 
