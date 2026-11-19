@@ -99,7 +99,7 @@ URL phát được lấy **theo yêu cầu** cho từng phòng khi bạn tick ch
 
 ```
 app.py                 # Flask app + các route
-requirements.txt       # flask, requests, pywasm
+requirements.txt       # flask, curl-cffi, pywasm
 Report/
   report.py            # Toàn bộ logic: lấy token, danh sách phòng, m3u8, đăng nhập
   api_sign.wasm        # Wasm tính header `sign` (trích từ JS của matoklive.tv)
@@ -121,6 +121,8 @@ Header `sign` được tính bằng Wasm `api_sign` (`Report/api_sign.wasm`, g�
 
 ## Ghi chú & giới hạn
 
+- **Cloudflare chặn TLS fingerprint của Python:** gọi API bằng `requests` thuần trả HTTP 401 cho mọi endpoint (`{"errorCode":"401","localizedValue":"Unauthorized"}`), dù header/giá trị `sign` đúng. App dùng `curl_cffi` với `impersonate="chrome"` để bắt chước dấu vân TLS của Chrome; không đổi sang `requests` nếu không muốn mất danh sách phòng.
+- **API host do JS của site quyết định:** hiện là `dfsg.fnccdn.com` (module `65380` trong `b8709579.js`); host cũ `sw.fnccdn.com` đã ngừng dùng.
 - **Đăng nhập có thể bị server tắt:** endpoint OAuth từng trả `M1120 Feature not yet available` cho mọi tài khoản. Khi đó app vẫn xem được bằng phiên khách; đây là thay đổi phía matoklive.tv, không phải lỗi của app.
 - **Mật khẩu không lưu:** mật khẩu chỉ được băm trong bộ nhớ để gửi lên server, không ghi log/đĩa; token mất khi restart tiến trình.
 - **`hls.js` và Tailwind nạp từ CDN** (`cdn.jsdelivr.net`, `cdn.tailwindcss.com`), nên giao diện cần Internet. Warning "should not be used in production" của Tailwind CDN là bình thường với app chạy local.

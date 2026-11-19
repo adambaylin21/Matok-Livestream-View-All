@@ -30,13 +30,20 @@ import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-import requests
+from curl_cffi import requests
 
 logger = logging.getLogger(__name__)
 
+# Cloudflare của matoklive.tv chặn TLS fingerprint của `requests`/Python (trả
+# 401 cho mọi API). Dùng curl_cffi với IMPERSONATE="chrome" để bắt chước dấu
+# vân TLS của Chrome — đây là cách trang web thật gọi API.
+IMPERSONATE = "chrome"
+
+# Tên miền API hiện tại do chính JS của matoklive.tv cung cấp (module 65380
+# trong b8709579.js): dfsg.fnccdn.com. Host cũ sw.fnccdn.com đã ngừng dùng.
 MERCHANT_ID = "559"
 AREA = "VN"
-BASE_API = f"https://sw.fnccdn.com/{MERCHANT_ID}/api"
+BASE_API = f"https://dfsg.fnccdn.com/{MERCHANT_ID}/api"
 
 COMMON_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
@@ -429,7 +436,9 @@ class Report:
         }
         body = "loginType=11&grant_type=password"
 
-        resp = self.session.post(url, headers=headers, data=body, timeout=self.timeout)
+        resp = self.session.post(
+            url, headers=headers, data=body, timeout=self.timeout, impersonate=IMPERSONATE
+        )
         try:
             resp.raise_for_status()
             payload = _normalize_json(resp)
@@ -482,7 +491,9 @@ class Report:
             "password": _pwd_hash(password),
         }
 
-        resp = self.session.post(url, headers=headers, data=body, timeout=self.timeout)
+        resp = self.session.post(
+            url, headers=headers, data=body, timeout=self.timeout, impersonate=IMPERSONATE
+        )
         try:
             payload = resp.json()
         except ValueError as exc:
@@ -554,24 +565,26 @@ class Report:
             "pn": page,
             "ps": page_size,
         }
-        last_error: Optional[requests.RequestException] = None
+        last_error: Optional[requests.exceptions.RequestException] = None
         for attempt in range(LIVE_LIST_MAX_ATTEMPTS):
             # Refresh the timestamp so the CDN does not receive a stale signed/cache key.
             params["t"] = int(time.time())
             try:
-                resp = self.session.get(url, params=params, timeout=self.timeout)
+                resp = self.session.get(
+                    url, params=params, timeout=self.timeout, impersonate=IMPERSONATE
+                )
                 resp.raise_for_status()
                 payload = _normalize_json(resp)
                 records = payload.get("records", [])
                 if not isinstance(records, list):
                     raise ReportError(f"'records' is not a list: {records!r}")
                 return payload
-            except requests.Timeout as exc:
+            except requests.exceptions.Timeout as exc:
                 last_error = exc
                 if attempt + 1 == LIVE_LIST_MAX_ATTEMPTS:
                     raise
                 time.sleep(LIVE_LIST_RETRY_DELAY * (2 ** attempt))
-            except requests.HTTPError as exc:
+            except requests.exceptions.HTTPError as exc:
                 last_error = exc
                 status = exc.response.status_code if exc.response is not None else None
                 if status not in (408, 429, 500, 502, 503, 504) or attempt + 1 == LIVE_LIST_MAX_ATTEMPTS:
@@ -646,7 +659,9 @@ class Report:
             "t": int(time.time()),
         }
         headers = {"dev-type": "H5", "versionCode": "102"}
-        resp = self.session.get(url, params=params, headers=headers, timeout=self.timeout)
+        resp = self.session.get(
+            url, params=params, headers=headers, timeout=self.timeout, impersonate=IMPERSONATE
+        )
         resp.raise_for_status()
         return _normalize_json(resp)
 
@@ -692,7 +707,9 @@ class Report:
             headers["Authorization"] = f"Bearer {self.get_guest_token()}"
             headers["sign"] = _sign_payload(None)
         for attempt in range(3):
-            resp = self.session.post(url, headers=headers, json=body, timeout=self.timeout)
+            resp = self.session.post(
+                url, headers=headers, json=body, timeout=self.timeout, impersonate=IMPERSONATE
+            )
             if resp.status_code == 401:
                 # Token có thể vừa hết hạn; phiên tài khoản hết hạn thì quay về khách.
                 if self._user_token and not guest_fallback:
@@ -795,8 +812,9 @@ class Report:
                 timeout=self.timeout,
                 stream=True,
                 headers={"Accept": "application/vnd.apple.mpegurl, application/x-mpegURL, */*"},
+                impersonate=IMPERSONATE,
             )
-        except requests.RequestException as exc:
+        except requests.exceptions.RequestException as exc:
             raise ReportError(f"Không tải được playlist: {exc}") from exc
 
         try:
